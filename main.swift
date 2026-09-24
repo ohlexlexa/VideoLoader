@@ -336,6 +336,8 @@ func buildArguments(mode: Mode, maxHeight: Int?, compatible: Bool, folder: Strin
         "download:PROG %(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s",
         "-P", folder,
         "-o", (fixedTitle ?? "%(title)s") + ".%(ext)s",
+        // главы YouTube — внутрь файла (QuickTime: » на панели управления → «Главы»); если глав нет, ничего не меняется
+        "--embed-chapters",
     ]
     switch mode {
     case .video:
