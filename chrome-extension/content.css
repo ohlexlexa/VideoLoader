@@ -1,0 +1,120 @@
+/* Кнопка в стиле соседних кнопок YouTube (лайк, «Поделиться»): 40px, скругление 20px.
+   Переменные цвета YouTube меняются от версии к версии, поэтому цвета заданы явно
+   для светлой темы и для тёмной (html[dark]). */
+.vl-wrap,
+.vl-menu {
+  --vl-bg: rgba(0, 0, 0, 0.05);
+  --vl-hover: rgba(0, 0, 0, 0.1);
+  --vl-text: #0f0f0f;
+  --vl-divider: rgba(0, 0, 0, 0.1);
+  --vl-menu: #fff;
+}
+
+.vl-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  height: 40px;
+  margin-left: 8px;
+  border-radius: 20px;
+  background: var(--vl-bg);
+  flex: none;
+}
+
+html[dark] .vl-wrap,
+html[dark] .vl-menu {
+  --vl-bg: rgba(255, 255, 255, 0.1);
+  --vl-hover: rgba(255, 255, 255, 0.2);
+  --vl-text: #f1f1f1;
+  --vl-divider: rgba(255, 255, 255, 0.2);
+  --vl-menu: #282828;
+}
+
+.vl-main,
+.vl-caret {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--vl-text);
+  font: 500 14px/40px Roboto, Arial, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vl-main {
+  padding: 0 12px 0 12px;
+  border-radius: 20px 0 0 20px;
+}
+
+.vl-caret {
+  padding: 0 14px 0 10px;
+  border-radius: 0 20px 20px 0;
+  border-left: 1px solid var(--vl-divider);
+  font-size: 12px;
+}
+
+.vl-main:hover,
+.vl-caret:hover {
+  background: var(--vl-hover);
+}
+
+.vl-main svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.vl-menu {
+  position: fixed;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  z-index: 2300;
+  display: none;
+  min-width: 200px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--vl-menu);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.3);
+}
+
+.vl-menu.open {
+  display: block;
+}
+
+.vl-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  color: var(--vl-text);
+  font: 400 14px Roboto, Arial, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vl-menu button:hover {
+  background: var(--vl-hover);
+}
+
+.vl-menu-title {
+  padding: 8px 16px 4px;
+  color: var(--vl-text);
+  opacity: 0.6;
+  font: 500 12px Roboto, Arial, sans-serif;
+}
+
+.vl-menu-sep {
+  height: 1px;
+  margin: 8px 0;
+  background: var(--vl-divider);
+}
+
+.vl-menu button .vl-hint {
+  margin-left: 8px;
+  opacity: 0.6;
+  font-size: 12px;
+}

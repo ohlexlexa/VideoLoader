@@ -1,0 +1,156 @@
+:root {
+  --bg: #ffffff;
+  --card: #f4f4f5;
+  --text: #18181b;
+  --muted: #71717a;
+  --line: #e4e4e7;
+  --btn: #e4e4e7;
+  --btn-hover: #d4d4d8;
+  --accent: #e3262f;
+  --accent-hover: #c81f28;
+  --on-accent: #ffffff;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --line: #3a3a3c;
+    --btn: #3a3a3c;
+    --btn-hover: #48484a;
+    --accent: #e3262f;
+    --accent-hover: #f0444c;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 380px;
+  margin: 0;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.card {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.card + .card { margin-top: 10px; }
+
+.title {
+  margin-bottom: 2px;
+  font-weight: 600;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.meta {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.label {
+  margin: 8px 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button {
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--btn);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover { background: var(--btn-hover); }
+
+button.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+button.primary:hover { background: var(--accent-hover); }
+
+.hint {
+  color: var(--muted);
+}
+
+.hint b { color: var(--text); font-weight: 600; }
+
+.error {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.thumb {
+  flex: none;
+  width: 128px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.info {
+  min-width: 0;
+  flex: 1;
+}
+
+.info .title {
+  -webkit-line-clamp: 3;
+}
+
+.info .meta {
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.card > .error {
+  margin-top: 8px;
+}

@@ -1,0 +1,5 @@
+# Сборка — пересоздаётся build.sh
+build/
+
+# macOS
+.DS_Store
