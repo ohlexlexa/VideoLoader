@@ -109,9 +109,21 @@
     menuLabel = label;
     fillMenu(m);
     const r = caret.getBoundingClientRect();
-    m.style.top = `${r.bottom + 6}px`;
     m.style.right = `${Math.max(8, document.documentElement.clientWidth - r.right)}px`;
+    m.style.top = m.style.bottom = m.style.maxHeight = "";
     m.classList.add("open");
+    // Кнопка обычно у нижнего края экрана: если снизу меню не помещается — открываем вверх,
+    // а высоту ограничиваем свободным местом, чтобы меню не уходило за край.
+    const viewport = window.innerHeight;
+    const below = viewport - r.bottom - 14;
+    const above = r.top - 14;
+    if (m.scrollHeight > below && above > below) {
+      m.style.bottom = `${viewport - r.top + 6}px`;
+      m.style.maxHeight = `${above}px`;
+    } else {
+      m.style.top = `${r.bottom + 6}px`;
+      m.style.maxHeight = `${below}px`;
+    }
   }
 
   document.addEventListener("click", (e) => {
@@ -149,13 +161,15 @@
       closeMenu();
       return;
     }
-    const target =
-      document.querySelector("ytd-watch-metadata #top-level-buttons-computed") ||
-      document.querySelector("ytd-watch-metadata #actions-inner");
+    // Последней перед «⋯»: сразу после #flexible-item-buttons (там же своя кнопка YouTube
+    // «Скачать», её прячет content.css). Запасной вариант — в конец ряда кнопок.
+    const flexible = document.querySelector("ytd-watch-metadata ytd-menu-renderer > #flexible-item-buttons");
+    const target = flexible?.parentElement || document.querySelector("ytd-watch-metadata #top-level-buttons-computed");
     if (!target) return;
-    if (existing && existing.parentElement === target) return;
+    if (existing && existing.parentElement === target && (!flexible || existing.previousElementSibling === flexible)) return;
     existing?.remove();
-    target.append(build());
+    if (flexible) flexible.after(build());
+    else target.append(build());
   }
 
   let scheduled = false;

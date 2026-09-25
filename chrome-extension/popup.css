@@ -46,6 +46,24 @@ header {
   font-size: 14px;
 }
 
+/* Chrome сам ограничивает окошко 600px и прокручивает его, а Safari подгоняет окошко под полную
+   высоту body (с прокручиваемой частью) и обрезает без прокрутки. Поэтому прокручивается список,
+   а не body: тогда высота body ограничена в обоих браузерах. */
+main {
+  max-height: 520px;
+  overflow-y: auto;
+  margin-right: -8px;
+  padding-right: 4px;
+}
+
+/* Узкая полоса прокрутки без дорожки (понимают и Safari, и Chrome). */
+main::-webkit-scrollbar { width: 4px; }
+main::-webkit-scrollbar-track { background: transparent; }
+main::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: var(--btn-hover);
+}
+
 .card {
   padding: 12px;
   border-radius: 10px;

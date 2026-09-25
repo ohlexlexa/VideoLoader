@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import SafariServices
 
 // MARK: - Настройки загрузки
 
@@ -142,6 +143,28 @@ enum BrowserExtension {
     }
 }
 
+/// Расширение для Safari вшито в приложение (PlugIns/VideoLoader Safari.appex), Safari находит его сам.
+/// Включить его может только пользователь — приложение лишь открывает нужную страницу настроек Safari.
+enum SafariExtension {
+    static let id = "local.ohlexlexa.videoloader.safari"
+
+    enum State { case absent, disabled, enabled }
+
+    /// absent — приложение собрано без расширения (нет сертификата) или Safari о нём не знает.
+    static func check(_ done: @escaping (State) -> Void) {
+        let bundled = Bundle.main.builtInPlugInsURL
+            .map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("VideoLoader Safari.appex").path) }
+        guard bundled == true else { return done(.absent) }
+        SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: id) { state, error in
+            done(state.map { $0.isEnabled ? .enabled : .disabled } ?? .absent)
+        }
+    }
+
+    static func openSettings() {
+        SFSafariApplication.showPreferencesForExtension(withIdentifier: id) { _ in }
+    }
+}
+
 // MARK: - Компоненты: yt-dlp, ffmpeg, deno
 
 struct Component: Identifiable {
@@ -173,6 +196,7 @@ final class Setup: ObservableObject {
     @Published var waitingForTerminal = false
     @Published var browsers: [BrowserState] = []
     @Published var extensionHelpFor: Browser?
+    @Published var safari: SafariExtension.State = .absent
 
     var extensionMissing: Bool { !browsers.isEmpty && !browsers.contains(where: \.extensionInstalled) }
 
@@ -183,6 +207,7 @@ final class Setup: ObservableObject {
     var installCommand: String { "brew install " + missing.map(\.id).joined(separator: " ") }
 
     func refresh(openIfMissing: Bool = false) {
+        SafariExtension.check { state in DispatchQueue.main.async { self.safari = state } }
         let current = components
         DispatchQueue.global(qos: .userInitiated).async {
             var updated = current
@@ -1025,6 +1050,12 @@ struct ContentView: View {
             HStack {
                 StatusButton(setup: setup)
                 Spacer()
+                if setup.safari == .disabled {
+                    Text("Расширение для Safari выключено").font(.callout).foregroundStyle(.secondary)
+                    Button("Включить", action: SafariExtension.openSettings)
+                        .controlSize(.small)
+                        .help("Откроет Safari → Настройки → Расширения: поставьте галочку у «Загрузка видео»")
+                }
                 if setup.checked && setup.extensionMissing {
                     Button("Расширение для браузера…") { setup.showSheet = true }
                         .buttonStyle(.link)
@@ -1278,12 +1309,32 @@ struct SetupSheet: View {
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor)))
 
             VStack(spacing: 0) {
-                if setup.browsers.isEmpty {
+                if setup.browsers.isEmpty && setup.safari == .absent {
                     Text("Не нашёл Google Chrome или Яндекс Браузер в «Программах» — расширение ставить некуда.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
+                }
+                if setup.safari != .absent {
+                    HStack(spacing: 10) {
+                        Image(systemName: setup.safari == .enabled ? "checkmark.circle.fill" : "puzzlepiece.extension.fill")
+                            .foregroundStyle(setup.safari == .enabled ? .green : .orange)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Расширение для Safari").font(.headline)
+                            Text("вшито в приложение, включается в настройках Safari")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(setup.safari == .enabled ? "включено" : "выключено")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Button(setup.safari == .enabled ? "Настройки Safari" : "Включить", action: SafariExtension.openSettings)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    if !setup.browsers.isEmpty { Divider() }
                 }
                 ForEach(Array(setup.browsers.enumerated()), id: \.element.id) { i, state in
                     if i > 0 { Divider() }

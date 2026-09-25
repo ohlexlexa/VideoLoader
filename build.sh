@@ -51,7 +51,56 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --deep -s - "$APP"
+# Расширение для Safari (appex внутри приложения). Safari держит его включённым, только если
+# оно подписано сертификатом разработчика (бесплатного аккаунта Xcode хватает, но подпись
+# действует только на этом Mac). Нет сертификата — приложение собирается без Safari.
+IDENTITY=$(security find-identity -v -p codesigning | awk '/"Apple Development/ {print $2; exit}')
+if [[ -n "$IDENTITY" ]]; then
+  EXT="$APP/Contents/PlugIns/VideoLoader Safari.appex"
+  mkdir -p "$EXT/Contents/MacOS" "$EXT/Contents/Resources"
+  for arch in arm64 x86_64; do
+    swiftc -O -parse-as-library -swift-version 5 -target $arch-apple-macos14.0 -application-extension \
+      -module-name VideoLoaderSafari safari/SafariWebExtensionHandler.swift \
+      -Xlinker -e -Xlinker _NSExtensionMain -o build/Safari-$arch
+  done
+  lipo -create build/Safari-arm64 build/Safari-x86_64 -output "$EXT/Contents/MacOS/VideoLoaderSafari"
+  cp -R chrome-extension/ "$EXT/Contents/Resources/"
+  cat > "$EXT/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Загрузка видео</string>
+  <key>CFBundleDisplayName</key><string>Загрузка видео</string>
+  <key>CFBundleIdentifier</key><string>local.ohlexlexa.videoloader.safari</string>
+  <key>CFBundleExecutable</key><string>VideoLoaderSafari</string>
+  <key>CFBundlePackageType</key><string>XPC!</string>
+  <key>CFBundleShortVersionString</key><string>1.2</string>
+  <key>CFBundleVersion</key><string>3</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>NSExtension</key>
+  <dict>
+    <key>NSExtensionPointIdentifier</key><string>com.apple.Safari.web-extension</string>
+    <key>NSExtensionPrincipalClass</key><string>SafariWebExtensionHandler</string>
+  </dict>
+</dict>
+</plist>
+PLIST
+  cat > build/safari.entitlements <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+</dict>
+</plist>
+PLIST
+  codesign --force --timestamp=none --entitlements build/safari.entitlements -s "$IDENTITY" "$EXT"
+  codesign --force --timestamp=none -s "$IDENTITY" "$APP"
+else
+  echo "Нет сертификата Apple Development — собираю без расширения для Safari"
+  codesign --force --deep -s - "$APP"
+fi
 
 rm -rf "/Applications/Загрузка видео.app"
 cp -R "$APP" /Applications/

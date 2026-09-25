@@ -118,3 +118,8 @@ html[dark] .vl-menu {
   opacity: 0.6;
   font-size: 12px;
 }
+
+/* Своя кнопка YouTube «Скачать» (Premium) не нужна: рядом есть наша. */
+ytd-watch-metadata ytd-download-button-renderer {
+  display: none !important;
+}
