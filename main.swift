@@ -342,7 +342,10 @@ func buildArguments(mode: Mode, maxHeight: Int?, compatible: Bool, folder: Strin
     switch mode {
     case .video:
         let cap = maxHeight.map { ":\($0)" } ?? ""
-        let sort = compatible ? "vcodec:h264,res\(cap),acodec:aac" : "res\(cap)"
+        // compatible: сразу H.264, даже если так ниже разрешение (обычно до 1080p), — без перекодирования.
+        // Иначе — лучшее разрешение, а среди равных H.264 и AAC; VP9/AV1/Opus потом перекодируются
+        // (см. needsQuickTimeConversion), чтобы файл открывался в QuickTime.
+        let sort = compatible ? "vcodec:h264,res\(cap),acodec:aac" : "res\(cap),vcodec:h264,acodec:aac"
         args += ["-f", "bv*+ba/b", "-S", sort, "--merge-output-format", "mp4"]
     case .audioM4A:
         args += ["-f", "ba[ext=m4a]/ba", "-x", "--audio-format", "m4a"]
@@ -442,6 +445,8 @@ final class DownloadJob: ObservableObject, Identifiable {
     @Published var title: String
     @Published var state: State = .starting
     @Published var progress: Double = 0
+    /// Ход перекодирования 0…1; nil — перекодирования нет или длительность неизвестна
+    @Published var convertProgress: Double? = nil
     @Published var detail = "Получаю сведения о видео…"
     @Published var filePath: String?
     @Published var fileDeleted = false
@@ -631,43 +636,79 @@ final class DownloadJob: ObservableObject, Identifiable {
         detail = (["Готово", name, note].compactMap { $0 }).joined(separator: " · ")
     }
 
-    // Instagram отдаёт лучшее качество только в VP9 — его не открывают ни QuickTime,
-    // ни просмотр по пробелу. Такой файл перекодируется в H.264 аппаратным кодировщиком Mac.
+    // Лучшее качество YouTube (2K, 4K) и Instagram приходит в VP9 или AV1, звук YouTube — часто Opus.
+    // Их не открывают ни QuickTime, ни просмотр по пробелу. Такой файл перекодируется
+    // аппаратным кодировщиком Mac: видео в H.264, звук в AAC; что и так подходит — копируется.
+    private func streamCodec(_ path: String, _ stream: String) -> String? {
+        guard let ffprobe = Tools.find("ffprobe") else { return nil }
+        return Tools.firstLine(ffprobe, ["-v", "error", "-select_streams", stream,
+                                         "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", path])
+    }
+
     private func needsQuickTimeConversion(_ path: String) -> Bool {
-        guard url.contains("instagram.com"), let ffprobe = Tools.find("ffprobe") else { return false }
-        let codec = Tools.firstLine(ffprobe, ["-v", "error", "-select_streams", "v:0",
-                                              "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", path])
-        return ["vp9", "av1"].contains(codec ?? "")
+        guard let video = streamCodec(path, "v:0"), !video.isEmpty else { return false }  // звук без видео не трогаем
+        let audio = streamCodec(path, "a:0") ?? ""
+        return ["vp9", "av1"].contains(video) || ["opus", "vorbis"].contains(audio)
     }
 
     private func convertForQuickTime(_ path: String) {
         guard let ffmpeg = Tools.find("ffmpeg") else { return markDone() }
         state = .processing
-        detail = "Перекодирую в H.264, чтобы видео открывалось в QuickTime…"
+        convertProgress = 0
+        detail = "Перекодирую, чтобы видео открывалось в QuickTime…"
+
+        let ffprobe = Tools.find("ffprobe")
+        let probe = { (entry: String) in
+            ffprobe.flatMap { Tools.firstLine($0, ["-v", "error", "-show_entries", "format=\(entry)", "-of", "default=nw=1:nk=1", path]) }
+        }
+        let videoNeeds = ["vp9", "av1"].contains(streamCodec(path, "v:0") ?? "")
+        let audioNeeds = ["opus", "vorbis"].contains(streamCodec(path, "a:0") ?? "")
+        let total = probe("duration").flatMap { Double($0) } ?? 0
 
         // H.264 сжимает хуже VP9 — битрейт берём вдвое выше исходного, в разумных пределах.
-        let sourceRate = Tools.find("ffprobe").flatMap {
-            Tools.firstLine($0, ["-v", "error", "-show_entries", "format=bit_rate", "-of", "default=nw=1:nk=1", path])
-        }.flatMap { Int($0) } ?? 3_000_000
+        let sourceRate = probe("bit_rate").flatMap { Int($0) } ?? 3_000_000
         let rate = min(max(sourceRate * 2, 3_000_000), 20_000_000)
 
         let folder = TempFiles.folder(for: id)
         try? FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
         let output = folder + "/converted.mp4"
 
+        var args = ["-y", "-v", "error", "-nostats", "-progress", "pipe:1", "-i", path,
+                    "-map", "0:v:0", "-map", "0:a?", "-map_chapters", "0"]
+        args += videoNeeds ? ["-c:v", "h264_videotoolbox", "-b:v", String(rate), "-tag:v", "avc1"] : ["-c:v", "copy"]
+        args += audioNeeds ? ["-c:a", "aac", "-b:a", "192k"] : ["-c:a", "copy"]
+        args += ["-movflags", "+faststart", output]
+
         let p = Process()
         p.executableURL = URL(fileURLWithPath: ffmpeg)
-        p.arguments = ["-y", "-v", "error", "-i", path,
-                       "-c:v", "h264_videotoolbox", "-b:v", String(rate), "-tag:v", "avc1",
-                       "-c:a", "copy", "-movflags", "+faststart", output]
+        p.arguments = args
         p.environment = Tools.environment
         p.standardInput = FileHandle.nullDevice
-        p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
+        // ffmpeg -progress пишет «out_time_us=…» — по нему считаем долю и оставшееся время
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        let started = Date()
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            guard total > 0, let text = String(data: handle.availableData, encoding: .utf8),
+                  let line = text.split(separator: "\n").last(where: { $0.hasPrefix("out_time_us=") }),
+                  let us = Double(line.dropFirst("out_time_us=".count)) else { return }
+            let share = min(max(us / 1_000_000 / total, 0), 1)
+            DispatchQueue.main.async {
+                guard self.state == .processing else { return }
+                self.convertProgress = share
+                var text = "Перекодирую для QuickTime · \(Int(share * 100))%"
+                let spent = Date().timeIntervalSince(started)
+                if share > 0.02 { text += " · осталось \(self.duration(spent / share - spent))" }
+                self.detail = text
+            }
+        }
         p.terminationHandler = { proc in
+            pipe.fileHandleForReading.readabilityHandler = nil
             DispatchQueue.main.async {
                 RunningProcesses.remove(proc)
                 self.process = nil
+                self.convertProgress = nil
                 var note: String? = nil
                 if self.cancelled {
                     note = "без перекодирования"
@@ -679,7 +720,7 @@ final class DownloadJob: ObservableObject, Identifiable {
                         note = "не удалось заменить файл перекодированным"
                     }
                 } else {
-                    note = "перекодировать не вышло, осталось VP9"
+                    note = "перекодировать не вышло, QuickTime файл может не открыть"
                 }
                 TempFiles.remove(folder)
                 self.markDone(note: note)
@@ -691,7 +732,8 @@ final class DownloadJob: ObservableObject, Identifiable {
             RunningProcesses.add(p)
         } catch {
             TempFiles.remove(folder)
-            markDone(note: "перекодировать не вышло, осталось VP9")
+            convertProgress = nil
+            markDone(note: "перекодировать не вышло, QuickTime файл может не открыть")
         }
     }
 
@@ -903,8 +945,8 @@ struct ContentView: View {
     @ObservedObject private var inbox = Inbox.shared
     @AppStorage("folder") private var folder = NSHomeDirectory() + "/Downloads"
     @AppStorage("mode") private var modeRaw = Mode.video.rawValue
-    @AppStorage("quality") private var qualityRaw = Quality.best.rawValue
     @AppStorage("compatible") private var compatible = false
+    @AppStorage("quality") private var qualityRaw = Quality.best.rawValue
     @State private var url = ""
 
     private var mode: Mode { Mode(rawValue: modeRaw) ?? .video }
@@ -943,8 +985,8 @@ struct ContentView: View {
                         ForEach(Quality.allCases) { Text($0.title).tag($0.rawValue) }
                     }
                     .fixedSize()
-                    Toggle("Для QuickTime (H.264)", isOn: $compatible)
-                        .help("Выбирает H.264, который открывается везде. Обычно это не выше 1080p.")
+                    Toggle("Без перекодирования", isOn: $compatible)
+                        .help("Сразу берёт H.264 — готово быстрее, но качество обычно не выше 1080p. Без галочки качается лучшее качество, а VP9/AV1 после загрузки перекодируется в H.264, чтобы файл открывался в QuickTime.")
                 }
                 Spacer()
             }
@@ -1070,6 +1112,8 @@ struct JobRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(job.title).font(.headline).lineLimit(1).truncationMode(.middle)
                 switch job.state {
+                case .processing where job.convertProgress != nil:
+                    ProgressView(value: job.convertProgress ?? 0)
                 case .starting, .processing:
                     ProgressView().progressViewStyle(.linear)
                 case .downloading:
@@ -1410,7 +1454,7 @@ final class DockProgress {
         let values = running.map { job -> Double in
             switch job.state {
             case .downloading: return job.progress
-            case .processing: return 1
+            case .processing: return job.convertProgress ?? 1
             default: return 0
             }
         }
