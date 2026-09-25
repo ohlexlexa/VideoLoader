@@ -394,6 +394,16 @@ func vimeoPlayerURL(_ raw: String) -> String? {
     return "https://player.vimeo.com/video/\(parts[i])" + (key.map { "?h=\($0)" } ?? "")
 }
 
+/// Ролик VK, открытый поверх ленты или стены (vk.com/feed?z=video-1_2%2F…), yt-dlp не узнаёт.
+/// Ссылки VK с /video-1_2, /clip-1_2 или z=video-1_2 превращаются в vkvideo.ru/video-1_2.
+func vkVideoURL(_ raw: String) -> String? {
+    guard let u = URLComponents(string: raw), let host = u.host?.lowercased(),
+          ["vk.com", "vk.ru", "vkvideo.ru"].contains(where: { host == $0 || host.hasSuffix("." + $0) }),
+          let m = (raw.removingPercentEncoding ?? raw).firstMatch(of: #/(video|clip)(-?\d+)_(\d+)/#)
+    else { return nil }
+    return "https://vkvideo.ru/\(m.1)\(m.2)_\(m.3)"
+}
+
 func sanitizeFilename(_ s: String) -> String {
     // Двоеточие и слэш в имени файла недопустимы — заменяем похожими символами, как это делает yt-dlp.
     let replaced = s.replacingOccurrences(of: ":", with: "：").replacingOccurrences(of: "/", with: "⧸")
@@ -784,7 +794,7 @@ final class DownloadManager: ObservableObject {
 
     /// Параметры, которых нет в запросе, берутся из настроек окна (UserDefaults, как у @AppStorage).
     func download(url rawURL: String, mode: Mode? = nil, maxHeight: Int? = nil, title: String? = nil) {
-        let url = vimeoPlayerURL(rawURL) ?? rawURL
+        let url = vimeoPlayerURL(rawURL) ?? vkVideoURL(rawURL) ?? rawURL
         let d = UserDefaults.standard
         let savedMode = Mode(rawValue: d.string(forKey: "mode") ?? "") ?? .video
         let savedQuality = Quality(rawValue: d.integer(forKey: "quality")) ?? .best

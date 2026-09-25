@@ -76,6 +76,7 @@ html[dark] .vl-menu {
   min-width: 200px;
   padding: 8px 0;
   border-radius: 12px;
+  border: var(--vl-menu-border, 0);
   background: var(--vl-menu);
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.3);
 }
@@ -122,4 +123,71 @@ html[dark] .vl-menu {
 /* Своя кнопка YouTube «Скачать» (Premium) не нужна: рядом есть наша. */
 ytd-watch-metadata ytd-download-button-renderer {
   display: none !important;
+}
+
+/* VK: кнопка в размер соседних («Поделиться»): 32px, шрифт сайта. Цвета фона и текста
+   vk.js берёт у соседней кнопки, поэтому светлая и тёмная темы подхватываются сами. */
+.vl-wrap.vl-vk {
+  height: 32px;
+  margin-left: 8px;
+  border-radius: 16px;
+  --vl-hover: rgba(128, 128, 128, 0.2);
+  --vl-divider: rgba(128, 128, 128, 0.35);
+}
+
+.vl-vk .vl-main,
+.vl-vk .vl-caret {
+  height: 32px;
+  font: 500 13px/32px -apple-system, system-ui, Roboto, "Helvetica Neue", sans-serif;
+}
+
+.vl-vk .vl-main {
+  padding: 0 10px 0 8px;
+  border-radius: 16px 0 0 16px;
+}
+
+.vl-vk .vl-caret {
+  padding: 0 12px 0 8px;
+  border-radius: 0 16px 16px 0;
+}
+
+.vl-vk .vl-main svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* VK клипы: круглая кнопка в столбце справа, как «Поделиться», с подписью снизу. */
+.vl-clip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.vl-clip-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.vl-clip-button:hover {
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.vl-clip-button svg {
+  width: 30px;
+  height: 30px;
+}
+
+.vl-clip-label {
+  color: rgb(130, 130, 130);
+  font: 500 12px/16px -apple-system, system-ui, Roboto, "Helvetica Neue", sans-serif;
 }

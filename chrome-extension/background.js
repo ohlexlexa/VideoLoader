@@ -1,6 +1,7 @@
 // Фоновая часть расширения:
 // 1) пункты контекстного меню для YouTube — отправляют ролик в приложение;
-// 2) ловит HLS-потоки GetCourse, пока на странице урока играет видео, и помнит их
+// 2) отвечает кнопке VK и окошку, какие качества и превью у ролика VK (vk-info);
+// 3) ловит HLS-потоки GetCourse, пока на странице урока играет видео, и помнит их
 //    для окошка расширения (popup). На иконке — счётчик найденных видео.
 // В приложение всё уходит ссылкой videoloader://download?url=…&mode=…&quality=…&title=…
 
@@ -11,6 +12,10 @@ const MODES = [
 ];
 
 const VIDEO_PAGES = [
+  "https://vkvideo.ru/video*",
+  "https://vkvideo.ru/clip*",
+  "https://vk.com/video*",
+  "https://vk.com/clip*",
   "https://www.youtube.com/watch*",
   "https://www.youtube.com/shorts/*",
   "https://m.youtube.com/watch*",
@@ -29,10 +34,22 @@ const VIDEO_LINKS = [
   "*://*.instagram.com/*/reel/*",
   "*://vimeo.com/*",
   "*://*.vimeo.com/*",
+  "*://vkvideo.ru/video*",
+  "*://vkvideo.ru/clip*",
+  "*://vk.com/video*",
+  "*://vk.com/clip*",
+  "*://vk.ru/video*",
+  "*://vk.ru/clip*",
+  "*://vk.com/*z=video*",
 ];
 
 // Приводит ссылку на ролик YouTube или пост Instagram к короткому виду без меток.
 function videoUrl(raw) {
+  // VK: /video-1_2, /clip-1_2 или ?z=video-1_2 (ролик поверх ленты) → прямая ссылка на ролик
+  if (/^https?:\/\/([\w-]+\.)?(vk\.com|vk\.ru|vkvideo\.ru)\//.test(raw || "")) {
+    const vk = raw.match(/(video|clip)(-?\d+)_(\d+)/);
+    return vk ? `https://vkvideo.ru/${vk[1]}${vk[2]}_${vk[3]}` : null;
+  }
   // Vimeo: ссылку приложение само переделает в ссылку плеера
   if (/^https?:\/\/([\w-]+\.)?vimeo\.com\/(.*\/)?\d{6,}/.test(raw || "")) return raw;
   const ig = (raw || "").match(/instagram\.com\/(?:[\w.]+\/)?(p|reels?|tv)\/([\w-]+)/);
@@ -98,6 +115,34 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const [kind, mode] = String(info.menuItemId).split(":");
   send(tab, kind === "link" ? info.linkUrl : (info.pageUrl || tab.url), mode);
+});
+
+// --- VK ----------------------------------------------------------------------
+// Встраиваемый плеер VK (video_ext.php) отдаётся без входа и содержит прямые ссылки
+// mp4_<высота> и превью. Запрос идёт отсюда: у кнопки на странице (content script)
+// чужой домен vk.com закрыт политикой CORS.
+
+async function vkInfo(oid, id) {
+  const res = await fetch(`https://vk.com/video_ext.php?oid=${oid}&id=${id}`);
+  const charset = /charset=([\w-]+)/i.exec(res.headers.get("content-type") || "")?.[1] || "utf-8";
+  const html = new TextDecoder(charset).decode(await res.arrayBuffer());
+  const heights = [...new Set([...html.matchAll(/"mp4_(\d{3,4})"\s*:\s*"http/g)].map((m) => Number(m[1])))]
+    .sort((a, b) => b - a);
+  let image = null;
+  const images = html.match(/"image"\s*:\s*(\[[^\]]*\])/);
+  if (images) {
+    try {
+      const best = JSON.parse(images[1]).sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+      image = best?.url || null;
+    } catch (e) {}
+  }
+  return { heights, image };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (message?.type !== "vk-info") return;
+  vkInfo(message.oid, message.id).then(reply, () => reply({ heights: [], image: null }));
+  return true; // ответ придёт асинхронно
 });
 
 // --- GetCourse ---------------------------------------------------------------

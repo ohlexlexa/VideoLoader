@@ -35,7 +35,9 @@
 - Тестовые страницы: GetCourse — `https://formfactor.getcourse.ru/materials` (4 плеера,
   без входа); Threads — `@designabdullin/post/DdrVN0II3To` (без звука),
   `@inconst8/post/DdqWJ4ojaPR` (со звуком); Instagram reel `DdrUVLCtj87`, карусель
-  `DdnuuABjzns`; Vimeo — `https://vimeo.com/1041249831/6f94f564a8`.
+  `DdnuuABjzns`; Vimeo — `https://vimeo.com/1041249831/6f94f564a8`; VK — ролик
+  `https://vkvideo.ru/video-220754053_456246684` (до 1080p, 2 часа — для загрузки не брать),
+  клип `https://vkvideo.ru/clip-232619944_456247484` (короткий, для загрузки).
 
 ## Решения, которые не надо переделывать
 
@@ -89,6 +91,14 @@
   Архив: `ditto -c -k --keepParent "build/Загрузка видео.app" VideoLoader-macOS.zip`.
 - **Окошко расширения:** прокручивается `main`, а не `body` — Safari подгоняет окошко
   под полную высоту body и обрезает без прокрутки.
+
+- **VK:** yt-dlp качает открытые ролики vkvideo.ru и vk.com без входа. Ролик определяется
+  по адресу (`video-1_2`, `clip-1_2`, `?z=video-1_2`), ссылки приводятся к `vkvideo.ru/video-1_2`
+  (в расширении — `videoUrl()`/`vkVideo()`, в приложении — `vkVideoURL()`). Качества и превью —
+  из встраиваемого плеера `vk.com/video_ext.php?oid=&id=` (ключи `mp4_<высота>`, `image`, страница
+  в windows-1251); запрос делает background.js — у content script чужой домен закрыт CORS.
+  Кнопка на странице ролика — за `[data-testid="video_page_share_button"]`, у клипов — в
+  `roundedgroup` перед «⋯». Вид кнопок vk.com с входом в аккаунт не проверен.
 
 ## Подводные камни
 

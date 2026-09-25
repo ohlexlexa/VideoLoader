@@ -402,6 +402,46 @@ async function renderVimeo(tab, video) {
   }
 }
 
+// --- VK Видео ----------------------------------------------------------------
+// Ролик — по адресу вкладки (/video-1_2, /clip-1_2, ?z=video-1_2 поверх ленты). Качества
+// и превью отдаёт фоновая часть (vk-info в background.js), название — заголовок вкладки.
+// Файл называет yt-dlp по названию ролика.
+
+function vkVideo(url) {
+  if (!/^https:\/\/([\w-]+\.)?(vk\.com|vk\.ru|vkvideo\.ru)\//.test(url || "")) return null;
+  const m = url.match(/(video|clip)(-?\d+)_(\d+)/);
+  return m && { kind: m[1], oid: m[2], id: m[3], url: `https://vkvideo.ru/${m[1]}${m[2]}_${m[3]}` };
+}
+
+async function renderVK(tab, video) {
+  const clip = video.kind === "clip";
+  const pageTitle = (tab.title || "").replace(/\s*[|—–-]\s*VK( Видео)?$/i, "").trim();
+  const title = clip || !pageTitle ? (clip ? "Клип VK" : "Видео VK") : pageTitle;
+  const card = mediaCard(title, "VK Видео · проверяю качество…", null);
+  const metaEl = card.querySelector(".meta");
+  const info = await chrome.runtime.sendMessage({ type: "vk-info", oid: video.oid, id: video.id }).catch(() => null);
+  const heights = info?.heights || [];
+  if (info?.image) {
+    const img = el("img");
+    img.src = info.image;
+    img.alt = "";
+    img.onerror = () => img.remove();
+    card.querySelector(".thumb").append(img);
+  }
+  metaEl.textContent = (clip ? "Клип VK" : "VK Видео") + (heights.length ? ` · до ${heights[0]}p` : "");
+  const url = video.url;
+  actionRow(card, "Видео", heights.length
+    ? heights.map((h, j) => [`${h}p`, j === 0, () => send(tab, { url, mode: "video", ...(j ? { quality: h } : {}) })])
+    : [["Скачать видео", true, () => send(tab, { url, mode: "video" })]]);
+  actionRow(card, "Только звук", [
+    ["mp3", false, () => send(tab, { url, mode: "mp3" })],
+    ["m4a", false, () => send(tab, { url, mode: "m4a" })],
+  ]);
+  if (!heights.length) {
+    card.append(el("div", "hint", "Если ролик закрытый (для друзей, в закрытой группе), приложение его не скачает: yt-dlp заходит в VK без вашего аккаунта."));
+  }
+}
+
 // --- GetCourse: плееры на странице -----------------------------------------
 
 // Выполняется внутри страницы. Возвращает плееры в порядке на странице
@@ -577,7 +617,7 @@ function renderEmpty() {
   p1.append("Видео на этой странице не найдено.");
   const p2 = el("p");
   p2.append("Откройте урок ", el("b", null, "GetCourse"), ", ролик на ", el("b", null, "YouTube"),
-    ", пост ", el("b", null, "Threads"), ", ", el("b", null, "Instagram"), " или видео на ", el("b", null, "Vimeo"), ".");
+    ", ", el("b", null, "VK Видео"), ", пост ", el("b", null, "Threads"), ", ", el("b", null, "Instagram"), " или видео на ", el("b", null, "Vimeo"), ".");
   const p3 = el("p");
   p3.append("Если урок открыт, а видео здесь нет — запустите его на пару секунд и нажмите на значок ещё раз.");
   card.append(p1, p2, p3);
@@ -590,6 +630,8 @@ function renderEmpty() {
   const yt = youtubeUrl(tab.url || "");
   if (yt) return renderYouTube(tab, yt);
   if (/^https:\/\/(www\.)?threads\.(com|net)\//.test(tab.url || "")) return renderThreads(tab);
+  const vk = vkVideo(tab.url);
+  if (vk) return renderVK(tab, vk);
   const vimeo = vimeoVideo(tab.url);
   if (vimeo) return renderVimeo(tab, vimeo);
   const ig = instagramPost(tab.url);

@@ -172,3 +172,8 @@ button.primary:hover { background: var(--accent-hover); }
 .card > .error {
   margin-top: 8px;
 }
+
+.card .hint {
+  margin-top: 8px;
+  font-size: 12px;
+}
