@@ -83,6 +83,10 @@
   Включить расширение программно нельзя, приложение только открывает настройки Safari
   (`SFSafariApplication.showPreferencesForExtension`). `world: "MAIN"` конвертер Apple называет
   неподдерживаемым, но Safari 27 его выполняет (YouTube и Instagram работают).
+- **Релиз:** архив собирать через `NO_SAFARI=1 ./build.sh` (ad-hoc, без appex): подпись личным
+  сертификатом на чужих Mac не работает и раскрывает почту из сертификата. `build.sh` ставит
+  сборку в /Applications, поэтому после этого пересобрать обычным `./build.sh`.
+  Архив: `ditto -c -k --keepParent "build/Загрузка видео.app" VideoLoader-macOS.zip`.
 - **Окошко расширения:** прокручивается `main`, а не `body` — Safari подгоняет окошко
   под полную высоту body и обрезает без прокрутки.
 

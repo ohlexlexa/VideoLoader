@@ -34,8 +34,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>VideoLoader</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.2</string>
-  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleShortVersionString</key><string>1.3</string>
+  <key>CFBundleVersion</key><string>4</string>
   <key>CFBundleDevelopmentRegion</key><string>ru</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -54,7 +54,9 @@ PLIST
 # Расширение для Safari (appex внутри приложения). Safari держит его включённым, только если
 # оно подписано сертификатом разработчика (бесплатного аккаунта Xcode хватает, но подпись
 # действует только на этом Mac). Нет сертификата — приложение собирается без Safari.
-IDENTITY=$(security find-identity -v -p codesigning | awk '/"Apple Development/ {print $2; exit}')
+# NO_SAFARI=1 ./build.sh — сборка для релиза: без Safari и без личного сертификата в подписи.
+IDENTITY=""
+[[ -z "${NO_SAFARI:-}" ]] && IDENTITY=$(security find-identity -v -p codesigning | awk '/"Apple Development/ {print $2; exit}')
 if [[ -n "$IDENTITY" ]]; then
   EXT="$APP/Contents/PlugIns/VideoLoader Safari.appex"
   mkdir -p "$EXT/Contents/MacOS" "$EXT/Contents/Resources"
@@ -75,8 +77,8 @@ if [[ -n "$IDENTITY" ]]; then
   <key>CFBundleIdentifier</key><string>local.ohlexlexa.videoloader.safari</string>
   <key>CFBundleExecutable</key><string>VideoLoaderSafari</string>
   <key>CFBundlePackageType</key><string>XPC!</string>
-  <key>CFBundleShortVersionString</key><string>1.2</string>
-  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleShortVersionString</key><string>1.3</string>
+  <key>CFBundleVersion</key><string>4</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSExtension</key>
   <dict>
@@ -98,7 +100,7 @@ PLIST
   codesign --force --timestamp=none --entitlements build/safari.entitlements -s "$IDENTITY" "$EXT"
   codesign --force --timestamp=none -s "$IDENTITY" "$APP"
 else
-  echo "Нет сертификата Apple Development — собираю без расширения для Safari"
+  [[ -z "${NO_SAFARI:-}" ]] && echo "Нет сертификата Apple Development — собираю без расширения для Safari"
   codesign --force --deep -s - "$APP"
 fi
 
