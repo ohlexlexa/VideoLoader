@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Загрузка видео",
-  "version": "1.14",
+  "version": "1.17",
   "description": "Скачивание с YouTube, VK Видео, GetCourse, Instagram, Threads и Vimeo через приложение «Загрузка видео» на Mac.",
   "icons": {
     "16": "icons/icon16.png",
@@ -70,7 +70,9 @@
     },
     {
       "matches": [
-        "https://www.instagram.com/*"
+        "https://www.instagram.com/*",
+        "https://www.threads.com/*",
+        "https://www.threads.net/*"
       ],
       "js": [
         "instagram-bridge.js"

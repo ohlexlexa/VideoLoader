@@ -114,64 +114,138 @@ function threadsCode(url) {
   return m ? m[1] : null;
 }
 
-// Выполняется внутри страницы Threads.
-function collectThreads() {
-  const found = [];
-  const seen = new Set();
-  function walk(o, owner) {
-    if (!o || typeof o !== "object") return;
-    if (Array.isArray(o)) { o.forEach((x) => walk(x, owner)); return; }
-    const code = o.code || owner;
-    if (Array.isArray(o.video_versions) && o.video_versions.length) {
-      const best = [...o.video_versions].sort((a, b) => (b.width || 0) - (a.width || 0))[0];
-      const key = o.pk || o.id || best.url;
-      if (best.url && !seen.has(key)) {
-        seen.add(key);
-        const cand = (o.image_versions2 && o.image_versions2.candidates) || [];
-        found.push({
-          code, user: (o.user && o.user.username) || null,
-          url: best.url, width: best.width || null, height: best.height || null,
-          hasAudio: o.has_audio !== false,
-          thumb: cand.length ? cand[0].url : null,
-          caption: (o.caption && o.caption.text) || "",
-        });
-      }
+// Выполняется внутри страницы Threads (world MAIN). Посты, ссылки на которые есть на странице,
+// и видео каждого. Данные поста — из JSON страницы или из фоновых запросов ленты, которые
+// запомнил instagram-bridge.js (window.__vlMedia): после прокрутки и переходов внутри Threads
+// в HTML их нет. Видео без данных (пост не попал ни туда, ни туда) не показываются.
+function threadsPosts() {
+  const byCode = new Map(window.__vlMedia || []);
+  const hasVideo = (o) => (o.video_versions || []).length > 0 ||
+    (o.carousel_media || []).some((m) => (m.video_versions || []).length > 0);
+  // один пост бывает в данных несколько раз, иногда урезанной копией — копия с видео важнее
+  function walk(o, depth) {
+    if (!o || typeof o !== "object" || depth > 60) return;
+    if (Array.isArray(o)) { for (const x of o) walk(x, depth + 1); return; }
+    if (typeof o.code === "string" && (o.video_versions || o.carousel_media)) {
+      const prev = byCode.get(o.code);
+      if (!prev || (!hasVideo(prev) && hasVideo(o))) byCode.set(o.code, o);
     }
-    for (const k in o) walk(o[k], code);
+    for (const k in o) walk(o[k], depth + 1);
   }
   for (const s of document.querySelectorAll('script[type="application/json"]')) {
-    try { walk(JSON.parse(s.textContent)); } catch (e) {}
+    try { walk(JSON.parse(s.textContent), 0); } catch (e) {}
   }
-  return found;
+  const videos = (post) => (post.carousel_media || [post])
+    .filter((m) => Array.isArray(m.video_versions) && m.video_versions.length)
+    .map((m) => {
+      const best = [...m.video_versions].sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+      const cand = (m.image_versions2 && m.image_versions2.candidates) || [];
+      return {
+        url: best.url, width: best.width || null, height: best.height || null,
+        hasAudio: (m.has_audio ?? post.has_audio) !== false,
+        thumb: cand.length ? cand[0].url : null,
+      };
+    });
+  const height = window.innerHeight;
+  const seen = new Set();
+  const posts = [];
+  for (const a of document.querySelectorAll('a[href*="/post/"]')) {
+    const m = (a.getAttribute("href") || "").match(/\/@([^/?#]+)\/post\/([\w-]+)/);
+    if (!m || seen.has(m[2])) continue;
+    const box = (a.closest('[data-pressable-container="true"]') || a).getBoundingClientRect();
+    if (!box.height) continue;
+    seen.add(m[2]);
+    const post = byCode.get(m[2]);
+    posts.push({
+      code: m[2],
+      user: (post && post.user && post.user.username) || m[1],
+      caption: (post && post.caption && post.caption.text) || "",
+      onScreen: box.bottom > 0 && box.top < height,
+      top: box.top,
+      videos: post ? videos(post) : [],
+    });
+  }
+  return { href: location.href, posts };
 }
 
-async function renderThreads(tab) {
-  const items = (await inPage(tab, collectThreads)) || [];
-  if (!items.length) return renderEmpty();
-  const main = threadsCode(tab.url);
-  // пост из адреса — первым; подпись и автор у вложенных видео наследуются от поста
-  items.sort((a, b) => (b.code === main) - (a.code === main));
-  const byCode = {};
-  for (const it of items) {
-    const parent = items.find((x) => x.code === it.code && (x.caption || x.user));
-    it.user = it.user || (parent && parent.user);
-    it.caption = it.caption || (parent && parent.caption) || "";
+// Разбирает загруженную заново страницу поста (см. threadsFetchPost): видео поста code.
+function threadsFromHtml(html, code) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  let post = null;
+  function walk(o, depth) {
+    if (post || !o || typeof o !== "object" || depth > 60) return;
+    if (Array.isArray(o)) { for (const x of o) walk(x, depth + 1); return; }
+    if (o.code === code && (o.video_versions || o.carousel_media)) { post = o; return; }
+    for (const k in o) walk(o[k], depth + 1);
   }
-  for (const it of items) {
-    const n = (byCode[it.code] = (byCode[it.code] || 0) + 1);
-    const caption = firstLine(it.caption);
-    const base = it.user ? `@${it.user}` : "Threads";
-    const title = (caption ? `${base} — ${caption}` : `${base} — ${it.code}`) + (n > 1 ? ` (${n})` : "");
-    const where = it.code === main ? "Этот пост" : "Со страницы";
-    const size = it.width && it.height ? ` · ${it.width}×${it.height}` : "";
-    const card = mediaCard(title, `Threads · ${where}${size}${it.hasAudio ? "" : " · без звука"}`, it.thumb);
-    actionRow(card, "Видео", [["Скачать видео", true, () => send(tab, { url: it.url, mode: "video", title })]]);
-    if (it.hasAudio) {
-      actionRow(card, "Только звук", [
-        ["mp3", false, () => send(tab, { url: it.url, mode: "mp3", title })],
-        ["m4a", false, () => send(tab, { url: it.url, mode: "m4a", title })],
-      ]);
-    }
+  for (const s of doc.querySelectorAll('script[type="application/json"]')) {
+    try { walk(JSON.parse(s.textContent), 0); } catch (e) {}
+  }
+  if (!post) return null;
+  return {
+    code,
+    user: (post.user && post.user.username) || null,
+    caption: (post.caption && post.caption.text) || "",
+    onScreen: true,
+    videos: (post.carousel_media || [post])
+      .filter((m) => Array.isArray(m.video_versions) && m.video_versions.length)
+      .map((m) => {
+        const best = [...m.video_versions].sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+        const cand = (m.image_versions2 && m.image_versions2.candidates) || [];
+        return {
+          url: best.url, width: best.width || null, height: best.height || null,
+          hasAudio: (m.has_audio ?? post.has_audio) !== false, thumb: cand.length ? cand[0].url : null,
+        };
+      }),
+  };
+}
+
+// Выполняется внутри страницы Threads: заново загружает открытый пост. Запрос идёт со страницы
+// (свой домен), а не из окошка — Safari не пускает окошко расширения на threads.com.
+// Без Accept: text/html Threads отдаёт страницу без данных поста.
+function threadsFetchPost() {
+  const post = location.href.match(/^https:\/\/(?:www\.)?threads\.(?:com|net)\/@[^/]+\/post\/[\w-]+/);
+  if (!post) return { href: location.href };
+  return fetch(post[0], { headers: { Accept: "text/html" } })
+    .then((r) => r.text())
+    .then((html) => ({ href: location.href, html }), () => ({ href: location.href }));
+}
+
+// На странице поста — сначала его видео (если данных нет, пост загружается заново), потом
+// видео из ответов. В ленте и профиле — посты, которые на экране, затем соседние.
+async function renderThreads(tab) {
+  const page = (await inPage(tab, threadsPosts, [], "MAIN")) || { href: tab.url, posts: [] };
+  const main = threadsCode(page.href);
+  let posts = page.posts;
+  if (main && !posts.some((p) => p.code === main && p.videos.length)) {
+    const fresh = await inPage(tab, threadsFetchPost);
+    const post = fresh && fresh.html && threadsFromHtml(fresh.html, main);
+    if (post) posts = [post, ...posts.filter((p) => p.code !== main)];
+  }
+  if (main) {
+    posts.sort((a, b) => (b.code === main) - (a.code === main));
+  } else {
+    posts.sort((a, b) => (b.onScreen - a.onScreen) || Math.abs(a.top) - Math.abs(b.top));
+  }
+  posts = posts.filter((p) => p.videos.length).slice(0, 8);
+  if (!posts.length) return renderEmpty();
+
+  for (const p of posts) {
+    const caption = firstLine(p.caption);
+    const base = p.user ? `@${p.user}` : "Threads";
+    const where = p.code === main ? "Этот пост" : main ? "Со страницы" : p.onScreen ? "На экране" : "В ленте выше или ниже";
+    p.videos.forEach((v, i) => {
+      const title = (caption ? `${base} — ${caption}` : `${base} — ${p.code}`) + (p.videos.length > 1 ? ` (${i + 1})` : "");
+      const size = v.width && v.height ? ` · ${v.width}×${v.height}` : "";
+      const card = mediaCard(title, `Threads · ${where}${size}${v.hasAudio ? "" : " · без звука"}`, v.thumb);
+      actionRow(card, "Видео", [["Скачать видео", true, () => send(tab, { url: v.url, mode: "video", title })]]);
+      if (v.hasAudio) {
+        actionRow(card, "Только звук", [
+          ["mp3", false, () => send(tab, { url: v.url, mode: "mp3", title })],
+          ["m4a", false, () => send(tab, { url: v.url, mode: "m4a", title })],
+        ]);
+      }
+    });
   }
 }
 

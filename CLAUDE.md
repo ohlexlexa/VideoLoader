@@ -72,7 +72,12 @@
 - **GetCourse:** плееры — iframe `…/sign-player/?json=<base64>` с `video_hash`. Страница плеера
   отдаётся без Referer и содержит `previewUrl` и адрес `…/api/playlist/master/<hash>/…`
   (незашифрованный HLS). yt-dlp узнаёт его по содержимому.
-- **Threads:** yt-dlp не поддерживает, берётся прямой mp4 (`video_versions`) из JSON страницы.
+- **Threads:** yt-dlp не поддерживает, берётся прямой mp4 (`video_versions`) из данных поста.
+  Окошко показывает только посты, ссылки на которые есть на странице (в ленте — сначала те, что
+  на экране): после переходов внутри Threads JSON в HTML остаётся от прежней страницы. Данные ленты
+  ловит `instagram-bridge.js` (формат постов как у Instagram). Если поста из адреса нет — он
+  загружается заново запросом со страницы (`threadsFetchPost`): из окошка Safari на threads.com
+  не пускает, а без `Accept: text/html` Threads отдаёт страницу без данных поста.
 - **Карусели и фото Instagram:** yt-dlp фото не качает, приложение скачивает их само
   (`videoloader://gallery`). Картинка — `image_versions2.candidates[0]` (исходник).
 - **Лента Instagram:** данные приходят фоновыми запросами. `instagram-bridge.js` (world MAIN,
