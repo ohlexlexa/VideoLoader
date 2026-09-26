@@ -8,59 +8,7 @@
   <a href="https://pay.cloudtips.ru/p/f46d5416">♥ Поддержать</a>
 </p>
 
-<img src="docs/slides/01.jpg" alt="DownMax 2.0" width="100%">
-
-<img src="docs/slides/02.jpg" alt="Скачать и сразу смотреть" width="100%">
-
-<img src="docs/slides/03.jpg" alt="13 сайтов проверены" width="100%">
-
-<img src="docs/slides/04.jpg" alt="Что ещё качает и что нет" width="100%">
-
-<img src="docs/slides/05.jpg" alt="Три способа дать ссылку" width="100%">
-
-<img src="docs/slides/06.jpg" alt="Кнопка «Скачать» под роликом" width="100%">
-
-<img src="docs/slides/07.jpg" alt="Любой файл играет в QuickTime" width="100%">
-
-<img src="docs/slides/08.jpg" alt="Всё видно до скачивания" width="100%">
-
-<img src="docs/slides/09.jpg" alt="Плейлист или канал целиком" width="100%">
-
-<img src="docs/slides/10.jpg" alt="Пауза, как у торрентов" width="100%">
-
-<img src="docs/slides/11.jpg" alt="Торренты без отдельной программы" width="100%">
-
-<img src="docs/slides/12.jpg" alt="Файлы, соцсети и уроки" width="100%">
-
-<img src="docs/slides/13.jpg" alt="Как в менеджере загрузок" width="100%">
-
-<img src="docs/slides/14.jpg" alt="Обновляется сам" width="100%">
-
-<img src="docs/slides/15.jpg" alt="Без аккаунтов и рекламы" width="100%">
-
-<img src="docs/slides/16.jpg" alt="В следующих релизах" width="100%">
-
-<a href="https://github.com/ohlexlexa/DownMax/releases/latest/download/DownMax-macOS.zip"><img src="docs/slides/17.jpg" alt="Скачать DownMax для Mac" width="100%"></a>
-
-<img src="docs/slides/18.jpg" alt="macOS спросит один раз" width="100%">
-
-<img src="docs/slides/19.jpg" alt="DownMax сам переедет в «Программы»" width="100%">
-
-<img src="docs/slides/20.jpg" alt="Нужные программы скачаются сами" width="100%">
-
-<img src="docs/slides/21.jpg" alt="Кнопка «Скачать» в Chrome" width="100%">
-
-<img src="docs/slides/22.jpg" alt="Торренты" width="100%">
-
-<img src="docs/slides/23.jpg" alt="Ссылки с iPhone: сначала на Mac" width="100%">
-
-<img src="docs/slides/24.jpg" alt="Потом на iPhone — команда" width="100%">
-
-<img src="docs/slides/25.jpg" alt="«Поделиться» → DownMax" width="100%">
-
-<img src="docs/slides/26.jpg" alt="Всё готово" width="100%">
-
-<a href="https://github.com/ohlexlexa/DownMax/releases/latest/download/DownMax-macOS.zip"><img src="docs/slides/27.jpg" alt="Качайте на здоровье" width="100%"></a>
+<p><img src="docs/slides/01.jpg" alt="DownMax 2.0" width="100%"><img src="docs/slides/02.jpg" alt="Скачать и сразу смотреть" width="100%"><img src="docs/slides/03.jpg" alt="13 сайтов проверены" width="100%"><img src="docs/slides/04.jpg" alt="Что ещё качает и что нет" width="100%"><img src="docs/slides/05.jpg" alt="Три способа дать ссылку" width="100%"><img src="docs/slides/06.jpg" alt="Кнопка «Скачать» под роликом" width="100%"><img src="docs/slides/07.jpg" alt="Любой файл играет в QuickTime" width="100%"><img src="docs/slides/08.jpg" alt="Всё видно до скачивания" width="100%"><img src="docs/slides/09.jpg" alt="Плейлист или канал целиком" width="100%"><img src="docs/slides/10.jpg" alt="Пауза, как у торрентов" width="100%"><img src="docs/slides/11.jpg" alt="Торренты без отдельной программы" width="100%"><img src="docs/slides/12.jpg" alt="Файлы, соцсети и уроки" width="100%"><img src="docs/slides/13.jpg" alt="Как в менеджере загрузок" width="100%"><img src="docs/slides/14.jpg" alt="Обновляется сам" width="100%"><img src="docs/slides/15.jpg" alt="Без аккаунтов и рекламы" width="100%"><img src="docs/slides/16.jpg" alt="В следующих релизах" width="100%"><a href="https://github.com/ohlexlexa/DownMax/releases/latest/download/DownMax-macOS.zip"><img src="docs/slides/17.jpg" alt="Скачать DownMax для Mac" width="100%"></a><img src="docs/slides/18.jpg" alt="macOS спросит один раз" width="100%"><img src="docs/slides/19.jpg" alt="DownMax сам переедет в «Программы»" width="100%"><img src="docs/slides/20.jpg" alt="Нужные программы скачаются сами" width="100%"><img src="docs/slides/21.jpg" alt="Кнопка «Скачать» в Chrome" width="100%"><img src="docs/slides/22.jpg" alt="Торренты" width="100%"><img src="docs/slides/23.jpg" alt="Ссылки с iPhone: сначала на Mac" width="100%"><img src="docs/slides/24.jpg" alt="Потом на iPhone — команда" width="100%"><img src="docs/slides/25.jpg" alt="«Поделиться» → DownMax" width="100%"><img src="docs/slides/26.jpg" alt="Всё готово" width="100%"><a href="https://github.com/ohlexlexa/DownMax/releases/latest/download/DownMax-macOS.zip"><img src="docs/slides/27.jpg" alt="Качайте на здоровье" width="100%"></a></p>
 
 <details>
 <summary><b>Подробнее: установка, устройство, сборка из исходников</b></summary>
