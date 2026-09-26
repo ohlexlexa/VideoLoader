@@ -286,6 +286,9 @@
   Translocation (карантинное приложение macOS запускает из временной папки) — `SecTranslocateCreateOriginalPathForURL`
   через dlsym. Прежняя версия — в Корзину, карантин снимается, перезапуск через sh после выхода. «Оставить здесь»
   запоминается (`moveDeclined`). Проверено копией без карантина; с карантином (App Translocation) вживую не проверено.
+- **README = слайды презентации** (решение пользователя 2026-09-26): сверху ссылка «Скачать», затем `docs/slides/01–27.jpg`
+  сверху вниз, техническое — под `<details>`. Обновить: пользователь экспортирует презентацию (claude.ai/artifact/G4pcytyZgeGuDUiTx5Rvkq,
+  Share → Export → PDF) в «Загрузки», страницы → PNG через PDFKit (1600 px) → JPEG 85, подписи alt — заголовки слайдов.
 - **Автообновление yt-dlp** (`ytdlp.swift`, решение пользователя 2026-09-26): раз в сутки (таймер 3 ч) и после ошибок
   `site_changed`/`forbidden`/`robot` (не чаще раза в час) DownMax сверяет `yt-dlp --version` с GitHub releases/latest;
   новее — `Setup.updateYtdlp`: из Cellar — `brew upgrade yt-dlp`, свой (bin DownMax) — скачать заново, иначе `yt-dlp -U`. Пока yt-dlp
