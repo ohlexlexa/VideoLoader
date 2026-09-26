@@ -10,11 +10,11 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/icon.iconset
 # Универсальная сборка: Apple Silicon и Intel
 for arch in arm64 x86_64; do
   swiftc -O -parse-as-library -swift-version 5 -target $arch-apple-macos14.0 \
-    main.swift torrent.swift updater.swift remote.swift menubar.swift ui.swift feedback.swift details.swift list.swift errors.swift stats.swift ytdlp.swift queue.swift playlist.swift components.swift wizard.swift mover.swift -o build/DownMax-$arch
+    Sources/*.swift -o build/DownMax-$arch
 done
 lipo -create build/DownMax-arm64 build/DownMax-x86_64 -output "$APP/Contents/MacOS/DownMax"
 
-swift make_icon.swift build/icon.png
+swift scripts/make_icon.swift build/icon.png
 for s in 16 32 128 256 512; do
   sips -z $s $s build/icon.png --out build/icon.iconset/icon_${s}x${s}.png >/dev/null
   sips -z $((s*2)) $((s*2)) build/icon.png --out build/icon.iconset/icon_${s}x${s}@2x.png >/dev/null
@@ -139,6 +139,6 @@ fi
 rm -rf "/Applications/Загрузка видео.app" "/Applications/DownMax.app"
 cp -R "$APP" /Applications/
 # «Своя» иконка ставится после подписи: подпись её не допускает, а macOS не затемняет её в тёмном режиме
-swift set_icon.swift "/Applications/DownMax.app" build/icon.png
+swift scripts/set_icon.swift "/Applications/DownMax.app" build/icon.png
 touch "/Applications/DownMax.app"
 echo "Готово: /Applications/DownMax.app"
