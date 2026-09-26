@@ -1,6 +1,6 @@
 # DownMax
 
-Бесплатное приложение для Mac: видео, звук, торренты и файлы. Вставили ссылку — получили файл.
+Бесплатное приложение для Mac, чтобы скачивать видео, музыку, торренты и файлы с YouTube, VK, Instagram, TikTok и ещё 1500 сайтов. Вставили ссылку — получили файл.
 
 <p align="center">
   <a href="https://github.com/ohlexlexa/DownMax/releases/latest/download/DownMax-macOS.zip"><b>⬇ Скачать DownMax для Mac</b></a>
