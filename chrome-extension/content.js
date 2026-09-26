@@ -31,7 +31,7 @@
     wrap.id = WRAP_ID;
 
     const main = el("button", "vl-main");
-    main.title = "Скачать в приложении «Загрузка видео» (с его настройками)";
+    main.title = "Скачать в приложении «DownMax» (с его настройками)";
     const label = el("span", "", "Скачать");
     main.append(icon(), label);
     main.addEventListener("click", () => send({ url: currentVideo() }, label));

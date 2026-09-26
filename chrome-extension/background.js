@@ -3,7 +3,7 @@
 // 2) отвечает кнопке VK и окошку, какие качества и превью у ролика VK (vk-info);
 // 3) ловит HLS-потоки GetCourse, пока на странице урока играет видео, и помнит их
 //    для окошка расширения (popup). На иконке — счётчик найденных видео.
-// В приложение всё уходит ссылкой videoloader://download?url=…&mode=…&quality=…&title=…
+// В приложение всё уходит ссылкой downmax://download?url=…&mode=…&quality=…&title=…
 
 const MODES = [
   { id: "", title: "Скачать видео" },
@@ -73,7 +73,7 @@ function videoUrl(raw) {
 }
 
 function appLink(url, mode) {
-  return `videoloader://download?url=${encodeURIComponent(url)}` + (mode ? `&mode=${mode}` : "");
+  return `downmax://download?url=${encodeURIComponent(url)}` + (mode ? `&mode=${mode}` : "");
 }
 
 // Переход на внешнюю схему не уводит со страницы: браузер спросит, открыть ли приложение.
@@ -110,6 +110,15 @@ chrome.runtime.onInstalled.addListener(() => {
       });
     }
   });
+});
+
+// Сразу после установки в Chrome — страничка «DownMax установлен»: она открывает downmax://installed, Chrome
+// спрашивает «Открыть DownMax?» (отметить «Всегда разрешать»), а приложение узнаёт, что расширение встало.
+// В Safari не нужно: там расширение внутри приложения.
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install" && self.location.protocol === "chrome-extension:") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -165,7 +174,7 @@ async function setStreams(tabId, list) {
 
 async function updateBadge(tabId, list) {
   const streams = list || (await getStreams(tabId));
-  chrome.action.setBadgeBackgroundColor({ color: "#e3262f", tabId }).catch(() => {});
+  chrome.action.setBadgeBackgroundColor({ color: "#ff4d80", tabId }).catch(() => {});
   chrome.action.setBadgeText({ text: streams.length ? String(streams.length) : "", tabId }).catch(() => {});
 }
 

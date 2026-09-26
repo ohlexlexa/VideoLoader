@@ -3,3 +3,7 @@ build/
 
 # macOS
 .DS_Store
+
+# Служебное
+.playwright-mcp/
+downmax_logo.png

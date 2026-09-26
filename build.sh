@@ -1,18 +1,18 @@
 #!/bin/zsh
-# Собирает «Загрузка видео.app» и кладёт его в /Applications.
+# Собирает DownMax.app и кладёт его в /Applications.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP="build/Загрузка видео.app"
+APP="build/DownMax.app"
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/icon.iconset
 
 # Универсальная сборка: Apple Silicon и Intel
 for arch in arm64 x86_64; do
   swiftc -O -parse-as-library -swift-version 5 -target $arch-apple-macos14.0 \
-    main.swift -o build/VideoLoader-$arch
+    main.swift torrent.swift updater.swift remote.swift menubar.swift ui.swift feedback.swift details.swift list.swift errors.swift stats.swift ytdlp.swift queue.swift playlist.swift components.swift wizard.swift mover.swift -o build/DownMax-$arch
 done
-lipo -create build/VideoLoader-arm64 build/VideoLoader-x86_64 -output "$APP/Contents/MacOS/VideoLoader"
+lipo -create build/DownMax-arm64 build/DownMax-x86_64 -output "$APP/Contents/MacOS/DownMax"
 
 swift make_icon.swift build/icon.png
 for s in 16 32 128 256 512; do
@@ -22,20 +22,23 @@ done
 iconutil -c icns build/icon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 cp build/icon.png "$APP/Contents/Resources/DockIcon.png"
 cp -R chrome-extension "$APP/Contents/Resources/chrome-extension"
+# aria2c для торрентов — свой, внутри приложения (как собран — vendor/build-aria2.sh)
+mkdir -p "$APP/Contents/Helpers"
+cp vendor/aria2c "$APP/Contents/Helpers/aria2c"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Загрузка видео</string>
-  <key>CFBundleDisplayName</key><string>Загрузка видео</string>
-  <key>CFBundleIdentifier</key><string>local.ohlexlexa.videoloader</string>
-  <key>CFBundleExecutable</key><string>VideoLoader</string>
+  <key>CFBundleName</key><string>DownMax</string>
+  <key>CFBundleDisplayName</key><string>DownMax</string>
+  <key>CFBundleIdentifier</key><string>local.ohlexlexa.downmax</string>
+  <key>CFBundleExecutable</key><string>DownMax</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.5</string>
-  <key>CFBundleVersion</key><string>6</string>
+  <key>CFBundleShortVersionString</key><string>2.0</string>
+  <key>CFBundleVersion</key><string>7</string>
   <key>CFBundleDevelopmentRegion</key><string>ru</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -43,8 +46,34 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
-      <key>CFBundleURLName</key><string>local.ohlexlexa.videoloader</string>
-      <key>CFBundleURLSchemes</key><array><string>videoloader</string></array>
+      <key>CFBundleURLName</key><string>local.ohlexlexa.downmax</string>
+      <key>CFBundleURLSchemes</key><array><string>downmax</string><string>videoloader</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>BitTorrent magnet</string>
+      <key>CFBundleURLSchemes</key><array><string>magnet</string></array>
+    </dict>
+  </array>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>Торрент-файл</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>org.bittorrent.torrent</string></array>
+    </dict>
+  </array>
+  <key>UTImportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key><string>org.bittorrent.torrent</string>
+      <key>UTTypeDescription</key><string>Торрент-файл</string>
+      <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key><array><string>torrent</string></array>
+        <key>public.mime-type</key><array><string>application/x-bittorrent</string></array>
+      </dict>
     </dict>
   </array>
 </dict>
@@ -54,31 +83,32 @@ PLIST
 # Расширение для Safari (appex внутри приложения). Safari держит его включённым, только если
 # оно подписано сертификатом разработчика (бесплатного аккаунта Xcode хватает, но подпись
 # действует только на этом Mac). Нет сертификата — приложение собирается без Safari.
-# NO_SAFARI=1 ./build.sh — сборка для релиза: без Safari и без личного сертификата в подписи.
+# NO_SAFARI=1 ./build.sh — сборка для релиза: без Safari, ad-hoc (личный сертификат на чужих Mac не работает
+# и раскрывает почту из него). Только такая сборка обновляется из релизов (см. updater.swift).
 IDENTITY=""
 [[ -z "${NO_SAFARI:-}" ]] && IDENTITY=$(security find-identity -v -p codesigning | awk '/"Apple Development/ {print $2; exit}')
 if [[ -n "$IDENTITY" ]]; then
-  EXT="$APP/Contents/PlugIns/VideoLoader Safari.appex"
+  EXT="$APP/Contents/PlugIns/DownMax Safari.appex"
   mkdir -p "$EXT/Contents/MacOS" "$EXT/Contents/Resources"
   for arch in arm64 x86_64; do
     swiftc -O -parse-as-library -swift-version 5 -target $arch-apple-macos14.0 -application-extension \
-      -module-name VideoLoaderSafari safari/SafariWebExtensionHandler.swift \
+      -module-name DownMaxSafari safari/SafariWebExtensionHandler.swift \
       -Xlinker -e -Xlinker _NSExtensionMain -o build/Safari-$arch
   done
-  lipo -create build/Safari-arm64 build/Safari-x86_64 -output "$EXT/Contents/MacOS/VideoLoaderSafari"
+  lipo -create build/Safari-arm64 build/Safari-x86_64 -output "$EXT/Contents/MacOS/DownMaxSafari"
   cp -R chrome-extension/ "$EXT/Contents/Resources/"
   cat > "$EXT/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Загрузка видео</string>
-  <key>CFBundleDisplayName</key><string>Загрузка видео</string>
-  <key>CFBundleIdentifier</key><string>local.ohlexlexa.videoloader.safari</string>
-  <key>CFBundleExecutable</key><string>VideoLoaderSafari</string>
+  <key>CFBundleName</key><string>DownMax</string>
+  <key>CFBundleDisplayName</key><string>DownMax</string>
+  <key>CFBundleIdentifier</key><string>local.ohlexlexa.downmax.safari</string>
+  <key>CFBundleExecutable</key><string>DownMaxSafari</string>
   <key>CFBundlePackageType</key><string>XPC!</string>
-  <key>CFBundleShortVersionString</key><string>1.5</string>
-  <key>CFBundleVersion</key><string>6</string>
+  <key>CFBundleShortVersionString</key><string>2.0</string>
+  <key>CFBundleVersion</key><string>7</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSExtension</key>
   <dict>
@@ -98,15 +128,17 @@ PLIST
 </plist>
 PLIST
   codesign --force --timestamp=none --entitlements build/safari.entitlements -s "$IDENTITY" "$EXT"
+  codesign --force --timestamp=none -s "$IDENTITY" "$APP/Contents/Helpers/aria2c"
   codesign --force --timestamp=none -s "$IDENTITY" "$APP"
 else
   [[ -z "${NO_SAFARI:-}" ]] && echo "Нет сертификата Apple Development — собираю без расширения для Safari"
   codesign --force --deep -s - "$APP"
 fi
 
-rm -rf "/Applications/Загрузка видео.app"
+# До 2.0 приложение называлось «Загрузка видео»
+rm -rf "/Applications/Загрузка видео.app" "/Applications/DownMax.app"
 cp -R "$APP" /Applications/
 # «Своя» иконка ставится после подписи: подпись её не допускает, а macOS не затемняет её в тёмном режиме
-swift set_icon.swift "/Applications/Загрузка видео.app" build/icon.png
-touch "/Applications/Загрузка видео.app"
-echo "Готово: /Applications/Загрузка видео.app"
+swift set_icon.swift "/Applications/DownMax.app" build/icon.png
+touch "/Applications/DownMax.app"
+echo "Готово: /Applications/DownMax.app"

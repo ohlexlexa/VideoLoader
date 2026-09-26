@@ -6,8 +6,9 @@
   --line: #e4e4e7;
   --btn: #e4e4e7;
   --btn-hover: #d4d4d8;
-  --accent: #e3262f;
-  --accent-hover: #c81f28;
+  --accent: #ff4d80;
+  --accent-hover: #e23a6d;
+  --error: #c62a1e;
   --on-accent: #ffffff;
   color-scheme: light dark;
 }
@@ -21,8 +22,9 @@
     --line: #3a3a3c;
     --btn: #3a3a3c;
     --btn-hover: #48484a;
-    --accent: #e3262f;
-    --accent-hover: #f0444c;
+    --accent: #ff4d80;
+    --accent-hover: #e23a6d;
+    --error: #ff7a6e;
   }
 }
 
@@ -129,7 +131,7 @@ button.primary:hover { background: var(--accent-hover); }
 .hint b { color: var(--text); font-weight: 600; }
 
 .error {
-  color: var(--accent);
+  color: var(--error);
   font-size: 12px;
 }
 

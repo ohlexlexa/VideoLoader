@@ -37,7 +37,7 @@ function cleanTitle(title) {
 
 function send(tab, params) {
   const q = new URLSearchParams(params);
-  chrome.tabs.update(tab.id, { url: "videoloader://download?" + q.toString() });
+  chrome.tabs.update(tab.id, { url: "downmax://download?" + q.toString() });
   window.close();
 }
 
@@ -56,6 +56,64 @@ function renderYouTube(tab, url) {
   mp3.onclick = () => send(tab, { url, mode: "mp3" });
   row.append(video, m4a, mp3);
   card.append(row);
+  // открыт из плейлиста (…&list=…) — можно взять весь; RD… — бесконечный «микс» YouTube, его не предлагаем
+  const list = new URL(tab.url).searchParams.get("list");
+  if (list && !list.startsWith("RD")) {
+    actionRow(card, "Плейлист", [["Весь плейлист", false,
+      () => send(tab, { url: `https://www.youtube.com/playlist?list=${list}`, mode: "video" })]]);
+  }
+  content.append(card);
+}
+
+// --- Плейлисты и каналы ------------------------------------------------------
+// Ролики выбираются в окне DownMax: приложение само получает список через yt-dlp. VK в этом списке
+// названий не отдаёт — расширение берёт их со страницы и передаёт в приложение (names: id ролика → название).
+
+function playlistPage(raw) {
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^(www\.|m\.)/, "");
+    if (host === "youtube.com") {
+      const list = u.searchParams.get("list");
+      if (u.pathname === "/playlist" && list) return { url: `https://www.youtube.com/playlist?list=${list}`, site: "YouTube", channel: false };
+      const m = u.pathname.match(/^\/(@[^/]+|(?:channel|c|user)\/[^/]+)/);
+      if (m) return { url: `https://www.youtube.com/${m[1]}`, site: "YouTube", channel: true };
+    }
+    if (/(^|\.)(vk\.com|vk\.ru|vkvideo\.ru)$/.test(u.hostname) && u.pathname.startsWith("/playlist/")) {
+      return { url: `https://vkvideo.ru${u.pathname}`, site: "VK Видео", channel: false };
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Выполняется внутри страницы: название плейлиста (h1) и названия роликов по ссылкам на них.
+function pagePlaylistInfo() {
+  const names = {};
+  for (const a of document.querySelectorAll('a[href*="video-"], a[href*="video"]')) {
+    const id = ((a.getAttribute("href") || "").match(/video(-?\d+_\d+)/) || [])[1];
+    if (!id) continue;
+    const t = (a.getAttribute("aria-label") || a.textContent || "").trim().replace(/\s+/g, " ");
+    if (t.length > (names[id] || "").length) names[id] = t;
+  }
+  return { names, heading: document.querySelector("h1")?.textContent.trim() || "" };
+}
+
+async function renderPlaylist(tab, list) {
+  const info = list.site === "VK Видео" ? await inPage(tab, pagePlaylistInfo) : null;
+  const name = info?.heading || cleanTitle(tab.title);
+  const card = el("div", "card");
+  card.append(el("div", "title", name));
+  card.append(el("div", "meta", `${list.site} · ${list.channel ? "канал" : "плейлист"}`));
+  const params = (mode) => {
+    const p = { url: list.url, mode, title: name };
+    if (info && Object.keys(info.names).length) p.names = JSON.stringify(info.names);
+    return p;
+  };
+  actionRow(card, "DownMax покажет список роликов, в нём отметите нужные", [
+    ["Выбрать видео", true, () => send(tab, params("video"))],
+    ["Звук mp3", false, () => send(tab, params("mp3"))],
+    ["Звук m4a", false, () => send(tab, params("m4a"))],
+  ]);
   content.append(card);
 }
 
@@ -234,15 +292,17 @@ async function renderThreads(tab) {
     const caption = firstLine(p.caption);
     const base = p.user ? `@${p.user}` : "Threads";
     const where = p.code === main ? "Этот пост" : main ? "Со страницы" : p.onScreen ? "На экране" : "В ленте выше или ниже";
+    // Ссылка на пост — для панели подробностей в приложении: ссылка на само видео временная.
+    const page = p.user ? `https://www.threads.com/@${p.user}/post/${p.code}` : tab.url;
     p.videos.forEach((v, i) => {
       const title = (caption ? `${base} — ${caption}` : `${base} — ${p.code}`) + (p.videos.length > 1 ? ` (${i + 1})` : "");
       const size = v.width && v.height ? ` · ${v.width}×${v.height}` : "";
       const card = mediaCard(title, `Threads · ${where}${size}${v.hasAudio ? "" : " · без звука"}`, v.thumb);
-      actionRow(card, "Видео", [["Скачать видео", true, () => send(tab, { url: v.url, mode: "video", title })]]);
+      actionRow(card, "Видео", [["Скачать видео", true, () => send(tab, { url: v.url, mode: "video", title, page })]]);
       if (v.hasAudio) {
         actionRow(card, "Только звук", [
-          ["mp3", false, () => send(tab, { url: v.url, mode: "mp3", title })],
-          ["m4a", false, () => send(tab, { url: v.url, mode: "m4a", title })],
+          ["mp3", false, () => send(tab, { url: v.url, mode: "mp3", title, page })],
+          ["m4a", false, () => send(tab, { url: v.url, mode: "m4a", title, page })],
         ]);
       }
     });
@@ -362,7 +422,7 @@ async function renderInstagramFeed(tab) {
       const parts = [photos ? `${photos} фото` : "", videos ? `${videos} видео` : ""].filter(Boolean).join(" и ");
       const card = mediaCard(title, `${where} · ${info.carousel ? "карусель, " : ""}${parts}`, info.thumb);
       actionRow(card, info.items.length > 1 ? "В отдельную папку" : "Файл",
-        [[info.items.length > 1 ? "Скачать всё в папку" : "Скачать", true, () => sendGallery(tab, title, info.items)]]);
+        [[info.items.length > 1 ? "Скачать всё в папку" : "Скачать", true, () => sendGallery(tab, title, info.items, postUrl)]]);
     } else {
       const kind = info ? "видео" : "пост — откройте его, если это фото";
       const card = mediaCard(title, `${where} · ${kind}`, info ? info.thumb : null);
@@ -375,9 +435,9 @@ async function renderInstagramFeed(tab) {
   }
 }
 
-function sendGallery(tab, title, items) {
-  const q = new URLSearchParams({ title, items: JSON.stringify(items) });
-  chrome.tabs.update(tab.id, { url: "videoloader://gallery?" + q.toString() });
+function sendGallery(tab, title, items, page) {
+  const q = new URLSearchParams({ title, items: JSON.stringify(items), page: page || tab.url });
+  chrome.tabs.update(tab.id, { url: "downmax://gallery?" + q.toString() });
   window.close();
 }
 
@@ -611,12 +671,12 @@ function buttonsFor(card, tab, playlistUrl, heights, title) {
   if (heights.length) {
     heights.forEach((h, j) => {
       const b = el("button", j === 0 ? "primary" : "", `${h}p`);
-      b.onclick = () => send(tab, { url: playlistUrl, mode: "video", title, ...(j ? { quality: h } : {}) });
+      b.onclick = () => send(tab, { url: playlistUrl, mode: "video", title, page: tab.url, ...(j ? { quality: h } : {}) });
       row.append(b);
     });
   } else {
     const b = el("button", "primary", "Скачать");
-    b.onclick = () => send(tab, { url: playlistUrl, mode: "video", title });
+    b.onclick = () => send(tab, { url: playlistUrl, mode: "video", title, page: tab.url });
     row.append(b);
   }
   card.append(row);
@@ -625,7 +685,7 @@ function buttonsFor(card, tab, playlistUrl, heights, title) {
   const audio = el("div", "row");
   for (const mode of ["mp3", "m4a"]) {
     const b = el("button", "", mode);
-    b.onclick = () => send(tab, { url: playlistUrl, mode, title });
+    b.onclick = () => send(tab, { url: playlistUrl, mode, title, page: tab.url });
     audio.append(b);
   }
   card.append(audio);
@@ -685,16 +745,68 @@ async function renderGetCourse(tab, players, streams) {
   await Promise.all(items.map((item) => renderGetCourseItem(tab, item)));
 }
 
-function renderEmpty() {
+// --- Другие сайты (их качает сам yt-dlp) --------------------------------------
+// Страница с видео узнаётся по адресу; что внутри, окошко не смотрит — ссылку разбирает yt-dlp в приложении.
+
+const SITES = [
+  ["TikTok", /(^|\.)tiktok\.com$/, /\/video\/\d+|^\/t\/|^\/@[^/]+\/photo\//],
+  ["Rutube", /(^|\.)rutube\.ru$/, /^\/(video|shorts)\/[\w-]+/],
+  ["Дзен", /(^|\.)dzen\.ru$/, /^\/(video\/watch|shorts)\/|^\/a\/|^\/media\//],
+  ["X", /(^|\.)(x|twitter)\.com$/, /^\/[^/]+\/status\/\d+/],
+  ["Pinterest", /(^|\.)pinterest\.[a-z.]+$/, /^\/pin\/\d+/],
+  ["Telegram", /^t\.me$/, /^\/(s\/)?[\w]+\/\d+/],
+  ["Twitch", /(^|\.)twitch\.tv$/, /\/clip\/|^\/videos\/\d+/],  // клипы и записи; прямой эфир бесконечен
+];
+
+function otherSite(raw) {
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^(www\.|m\.)/, "");
+    if (host === "clips.twitch.tv") return "Twitch";
+    for (const [name, hostRe, pathRe] of SITES) {
+      if (hostRe.test(host) && pathRe.test(u.pathname)) return name;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function renderOtherSite(tab, site) {
+  const url = tab.url;
+  const card = el("div", "card");
+  card.append(el("div", "title", cleanTitle(tab.title)));
+  card.append(el("div", "meta", site));
+  const row = el("div", "row");
+  const video = el("button", "primary", "Скачать видео");
+  video.onclick = () => send(tab, { url });
+  const m4a = el("button", "", "Звук m4a");
+  m4a.onclick = () => send(tab, { url, mode: "m4a" });
+  const mp3 = el("button", "", "Звук mp3");
+  mp3.onclick = () => send(tab, { url, mode: "mp3" });
+  row.append(video, m4a, mp3);
+  card.append(row);
+  content.append(card);
+}
+
+function renderEmpty(tab) {
   const card = el("div", "card hint");
   const p1 = el("p");
   p1.append("Видео на этой странице не найдено.");
   const p2 = el("p");
-  p2.append("Откройте урок ", el("b", null, "GetCourse"), ", ролик на ", el("b", null, "YouTube"),
-    ", ", el("b", null, "VK Видео"), ", пост ", el("b", null, "Threads"), ", ", el("b", null, "Instagram"), " или видео на ", el("b", null, "Vimeo"), ".");
+  p2.append("Откройте ролик на ", el("b", null, "YouTube"), ", ", el("b", null, "VK Видео"), ", ",
+    el("b", null, "TikTok"), ", ", el("b", null, "Rutube"), ", ", el("b", null, "Дзене"), ", ", el("b", null, "Vimeo"),
+    ", пост ", el("b", null, "Instagram"), ", ", el("b", null, "Threads"), ", ", el("b", null, "X"), " или урок ",
+    el("b", null, "GetCourse"), ".");
   const p3 = el("p");
   p3.append("Если урок открыт, а видео здесь нет — запустите его на пару секунд и нажмите на значок ещё раз.");
   card.append(p1, p2, p3);
+  // Другой сайт: DownMax (yt-dlp) знает сотни сайтов — можно попробовать, не получится — скажет в строке загрузки.
+  if (tab && /^https?:\/\//.test(tab.url || "")) {
+    const row = el("div", "row");
+    const any = el("button", "", "Попробовать скачать со страницы");
+    any.onclick = () => send(tab, { url: tab.url });
+    row.append(any);
+    card.append(row);
+  }
   content.append(card);
 }
 
@@ -705,17 +817,21 @@ function renderEmpty() {
   if (yt) return renderYouTube(tab, yt);
   if (/^https:\/\/(www\.)?threads\.(com|net)\//.test(tab.url || "")) return renderThreads(tab);
   const vk = vkVideo(tab.url);
-  if (vk) return renderVK(tab, vk);
+  if (vk) return renderVK(tab, vk);  // ролик поверх плейлиста (?z=video…) — важнее самого плейлиста
+  const list = playlistPage(tab.url || "");
+  if (list) return renderPlaylist(tab, list);
   const vimeo = vimeoVideo(tab.url);
   if (vimeo) return renderVimeo(tab, vimeo);
   const ig = instagramPost(tab.url);
   if (ig) return renderInstagram(tab, ig);
   if (/^https:\/\/(www\.)?instagram\.com\//.test(tab.url || "")) return renderInstagramFeed(tab);
+  const site = otherSite(tab.url || "");
+  if (site) return renderOtherSite(tab, site);
   const [players, stored] = await Promise.all([
     pagePlayers(tab),
     chrome.storage.session.get("gc:" + tab.id),
   ]);
   const streams = stored["gc:" + tab.id] || [];
   if (players.length || streams.length) return renderGetCourse(tab, players, streams);
-  renderEmpty();
+  renderEmpty(tab);
 })();

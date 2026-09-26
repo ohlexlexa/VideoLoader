@@ -1,7 +1,7 @@
 import AppKit
 
 // Рисует иконку 1024×1024 по сетке macOS: суперэллипс 824×824 с отступом 100,
-// красный градиент и белая стрелка вниз. Без тени — форма должна совпадать с системной маской.
+// розовый градиент (в среднем #FF4D80) и белая стрелка вниз. Без тени — форма должна совпадать с системной маской.
 let size = 1024
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
                            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -25,8 +25,8 @@ func squircle(in r: NSRect, exponent n: Double = 5) -> NSBezierPath {
 }
 
 let shape = squircle(in: NSRect(x: 100, y: 100, width: 824, height: 824))
-NSGradient(starting: NSColor(srgbRed: 1.0, green: 0.36, blue: 0.30, alpha: 1),
-           ending: NSColor(srgbRed: 0.80, green: 0.07, blue: 0.14, alpha: 1))!
+NSGradient(starting: NSColor(srgbRed: 1.0, green: 0.39, blue: 0.56, alpha: 1),
+           ending: NSColor(srgbRed: 0.96, green: 0.22, blue: 0.43, alpha: 1))!
     .draw(in: shape, angle: -90)
 
 let config = NSImage.SymbolConfiguration(pointSize: 420, weight: .bold)

@@ -19,7 +19,7 @@
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
     const rect = document.createElementNS(SVG, "rect");
-    for (const [k, v] of Object.entries({ x: 1, y: 1, width: 22, height: 22, rx: 7, fill: "#e3262f" })) rect.setAttribute(k, v);
+    for (const [k, v] of Object.entries({ x: 1, y: 1, width: 22, height: 22, rx: 7, fill: "#ff4d80" })) rect.setAttribute(k, v);
     const path = document.createElementNS(SVG, "path");
     for (const [k, v] of Object.entries({
       d: "M12 6v8.5M8 10.5l4 4 4-4M7.5 18h9",
@@ -35,7 +35,7 @@
     if (!params.url) return;
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v) q.set(k, v);
-    location.href = "videoloader://download?" + q.toString();
+    location.href = "downmax://download?" + q.toString();
     if (!label) return;
     const old = label.textContent;
     label.textContent = "Отправлено";
